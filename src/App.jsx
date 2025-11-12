@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 function Sparkle({ delay = 0, className = '' }) {
   return (
@@ -120,6 +120,20 @@ function App() {
   const [newReason, setNewReason] = useState('')
   const [themeKey, setThemeKey] = useState('pink')
 
+  // Gallery
+  const [gallery, setGallery] = useState([])
+  const [photoForm, setPhotoForm] = useState({ url: '', caption: '' })
+
+  // Countdown
+  const [countdownLabel, setCountdownLabel] = useState('Big day')
+  const [countdownDate, setCountdownDate] = useState('')
+  const [timeLeft, setTimeLeft] = useState(null)
+
+  // Music
+  const [musicUrl, setMusicUrl] = useState('')
+  const [musicOn, setMusicOn] = useState(false)
+  const audioRef = useRef(null)
+
   const theme = THEMES[themeKey]
 
   useEffect(() => {
@@ -128,16 +142,26 @@ function App() {
     const savedMem = localStorage.getItem('bro-love-memories')
     const savedReasons = localStorage.getItem('bro-love-reasons')
     const savedTheme = localStorage.getItem('bro-love-theme')
+    const savedGallery = localStorage.getItem('bro-love-gallery')
+    const savedCountdown = localStorage.getItem('bro-love-countdown')
+    const savedMusic = localStorage.getItem('bro-love-music')
 
     if (saved) setMessage(saved)
     if (savedName) setName(savedName)
-    if (savedMem) {
-      try { setMemories(JSON.parse(savedMem)) } catch {}
-    }
-    if (savedReasons) {
-      try { setReasons(JSON.parse(savedReasons)) } catch {}
-    }
+    if (savedMem) { try { setMemories(JSON.parse(savedMem)) } catch {} }
+    if (savedReasons) { try { setReasons(JSON.parse(savedReasons)) } catch {} }
     if (savedTheme && THEMES[savedTheme]) setThemeKey(savedTheme)
+    if (savedGallery) { try { setGallery(JSON.parse(savedGallery)) } catch {} }
+    if (savedCountdown) { try {
+      const obj = JSON.parse(savedCountdown)
+      if (obj.label) setCountdownLabel(obj.label)
+      if (obj.date) setCountdownDate(obj.date)
+    } catch {} }
+    if (savedMusic) { try {
+      const obj = JSON.parse(savedMusic)
+      if (obj.url) setMusicUrl(obj.url)
+      if (obj.on) setMusicOn(obj.on)
+    } catch {} }
   }, [])
 
   useEffect(() => {
@@ -159,6 +183,18 @@ function App() {
   useEffect(() => {
     localStorage.setItem('bro-love-theme', themeKey)
   }, [themeKey])
+
+  useEffect(() => {
+    localStorage.setItem('bro-love-gallery', JSON.stringify(gallery))
+  }, [gallery])
+
+  useEffect(() => {
+    localStorage.setItem('bro-love-countdown', JSON.stringify({ label: countdownLabel, date: countdownDate }))
+  }, [countdownLabel, countdownDate])
+
+  useEffect(() => {
+    localStorage.setItem('bro-love-music', JSON.stringify({ url: musicUrl, on: musicOn }))
+  }, [musicUrl, musicOn])
 
   const [memForm, setMemForm] = useState({ icon: '💖', title: '', subtitle: '' })
 
@@ -234,13 +270,72 @@ function App() {
     }
   }
 
+  function addPhoto() {
+    if (!photoForm.url.trim()) return
+    setGallery((g) => [{ ...photoForm }, ...g])
+    setPhotoForm({ url: '', caption: '' })
+  }
+
+  function removePhoto(index) {
+    setGallery((g) => g.filter((_, i) => i !== index))
+  }
+
+  useEffect(() => {
+    if (!countdownDate) { setTimeLeft(null); return }
+    function compute() {
+      const target = new Date(countdownDate).getTime()
+      const now = Date.now()
+      const diff = target - now
+      if (isNaN(target)) { setTimeLeft(null); return }
+      if (diff <= 0) { setTimeLeft({ d:0,h:0,m:0,s:0, done: true }); return }
+      const d = Math.floor(diff / (1000*60*60*24))
+      const h = Math.floor((diff / (1000*60*60)) % 24)
+      const m = Math.floor((diff / (1000*60)) % 60)
+      const s = Math.floor((diff / 1000) % 60)
+      setTimeLeft({ d, h, m, s, done: false })
+    }
+    compute()
+    const id = setInterval(compute, 1000)
+    return () => clearInterval(id)
+  }, [countdownDate])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (musicOn && musicUrl) {
+      audio.play().catch(() => {})
+    } else {
+      audio.pause()
+    }
+  }, [musicOn, musicUrl])
+
+  function toggleMusic() {
+    setMusicOn((v) => !v)
+  }
+
+  function printPage() {
+    window.print()
+  }
+
+  // Surprise message
+  const [secret, setSecret] = useState({ code: '', text: '' })
+  const [unlockAttempt, setUnlockAttempt] = useState('')
+  const [unlocked, setUnlocked] = useState(false)
+  useEffect(() => {
+    const saved = localStorage.getItem('bro-love-secret')
+    if (saved) { try { const obj = JSON.parse(saved); setSecret(obj) } catch {} }
+  }, [])
+  useEffect(() => {
+    localStorage.setItem('bro-love-secret', JSON.stringify(secret))
+  }, [secret])
+
   const accentText = `bg-gradient-to-r ${theme.accentFrom} ${theme.accentTo} bg-clip-text text-transparent`
   const bgGradient = `bg-gradient-to-br ${theme.from} ${theme.via} ${theme.to}`
 
   return (
     <div className={`min-h-screen ${bgGradient}`}>
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/70 backdrop-blur border-b border-gray-100">
+      <header className="sticky top-0 z-10 bg-white/70 backdrop-blur border-b border-gray-100 print:hidden">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-rose-600 font-bold">
             <span className="text-xl">❤️</span>
@@ -303,10 +398,11 @@ function App() {
               </div>
 
               {/* Quick actions */}
-              <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="mt-6 flex flex-wrap items-center gap-3 print:hidden">
                 <button onClick={celebrate} className="px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-sm">Celebrate 🎉</button>
                 <button onClick={downloadLetter} className="px-3 py-2 rounded-lg bg-gray-900 hover:bg-black text-white text-sm">Download letter</button>
                 <button onClick={sharePage} className="px-3 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 text-sm">Share link</button>
+                <button onClick={printPage} className="px-3 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 text-sm">Print</button>
               </div>
             </div>
             <div className="relative">
@@ -339,7 +435,7 @@ function App() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h3 className="font-semibold text-gray-900">Personalize the vibe</h3>
-              <p className="text-sm text-gray-600">Pick a color theme and add your own memories and reasons. Everything saves automatically.</p>
+              <p className="text-sm text-gray-600">Pick a color theme, add memories, reasons, and more. Everything saves automatically.</p>
             </div>
             <div className="flex items-center gap-2">
               {Object.entries(THEMES).map(([key, t]) => (
@@ -404,6 +500,97 @@ function App() {
               </div>
             </div>
           </div>
+
+          {/* Gallery + Countdown + Music + Secret */}
+          <div className="grid md:grid-cols-2 gap-4 mt-4">
+            {/* Gallery */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <h4 className="font-medium text-gray-900 mb-3">Photo gallery</h4>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  value={photoForm.url}
+                  onChange={(e) => setPhotoForm((f) => ({ ...f, url: e.target.value }))}
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg"
+                  placeholder="Paste image URL (https://...)"
+                />
+              </div>
+              <input
+                value={photoForm.caption}
+                onChange={(e) => setPhotoForm((f) => ({ ...f, caption: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                placeholder="Caption (optional)"
+              />
+              <div className="mt-3 flex items-center gap-2">
+                <button onClick={addPhoto} className="px-3 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-sm">Add photo</button>
+                {gallery.length > 0 && (
+                  <button onClick={() => setGallery([])} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm">Clear all</button>
+                )}
+              </div>
+            </div>
+
+            {/* Countdown & Music */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <h4 className="font-medium text-gray-900 mb-3">Countdown & music</h4>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <input
+                  value={countdownLabel}
+                  onChange={(e) => setCountdownLabel(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg"
+                  placeholder="Event name"
+                />
+                <input
+                  type="date"
+                  value={countdownDate}
+                  onChange={(e) => setCountdownDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg"
+                />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-2 mt-2 items-center">
+                <input
+                  value={musicUrl}
+                  onChange={(e) => setMusicUrl(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg"
+                  placeholder="Music URL (mp3)"
+                />
+                <button onClick={toggleMusic} className={`px-3 py-2 rounded-lg text-sm ${musicOn ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>{musicOn ? 'Pause music' : 'Play music'}</button>
+              </div>
+              <audio ref={audioRef} src={musicUrl || undefined} loop className="hidden" />
+            </div>
+          </div>
+
+          {/* Secret message */}
+          <div className="rounded-xl border border-gray-200 bg-white p-4 mt-4">
+            <h4 className="font-medium text-gray-900 mb-3">Surprise message</h4>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <input
+                value={secret.code}
+                onChange={(e) => setSecret((s) => ({ ...s, code: e.target.value }))}
+                className="px-3 py-2 border border-gray-200 rounded-lg"
+                placeholder="Set a secret code (e.g., a date)"
+              />
+              <input
+                value={secret.text}
+                onChange={(e) => setSecret((s) => ({ ...s, text: e.target.value }))}
+                className="px-3 py-2 border border-gray-200 rounded-lg"
+                placeholder="Hidden message"
+              />
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                value={unlockAttempt}
+                onChange={(e) => setUnlockAttempt(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg"
+                placeholder="Enter code to preview unlock"
+              />
+              <button
+                onClick={() => setUnlocked(unlockAttempt === secret.code && secret.code.length > 0)}
+                className="px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-sm"
+              >
+                Unlock
+              </button>
+              {unlocked && <span className="text-sm text-emerald-600">Unlocked! This is what he will see.</span>}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -420,6 +607,25 @@ function App() {
           </div>
         )}
       </section>
+
+      {/* Gallery */}
+      {gallery.length > 0 && (
+        <section className="max-w-5xl mx-auto px-4 pb-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Our photos</h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {gallery.map((p, i) => (
+              <figure key={i} className="group overflow-hidden rounded-xl border border-gray-200 bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.url} alt={p.caption || `Photo ${i+1}`} className="w-full h-56 object-cover" />
+                <figcaption className="flex items-center justify-between px-3 py-2 text-sm text-gray-700">
+                  <span className="truncate mr-2">{p.caption || '—'}</span>
+                  <button onClick={() => removePhoto(i)} className="text-xs px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700">Remove</button>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Letter */}
       <section id="letter" className="bg-white/70 border-y border-gray-100">
@@ -469,6 +675,21 @@ function App() {
                 </div>
               </>
             )}
+
+            {/* Secret reveal inside letter for the recipient */}
+            {secret.text && (
+              <div className="mt-6 p-4 rounded-lg border border-emerald-200 bg-emerald-50">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-emerald-700">Secret note</p>
+                  {!unlocked && <span className="text-xs text-emerald-700">Locked</span>}
+                </div>
+                {unlocked ? (
+                  <p className="mt-2 text-emerald-800">{secret.text}</p>
+                ) : (
+                  <p className="mt-2 text-emerald-800 opacity-60 select-none">•••••••••••••••••••••</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -490,6 +711,27 @@ function App() {
         )}
       </section>
 
+      {/* Countdown display */}
+      {timeLeft && (
+        <section className="max-w-5xl mx-auto px-4 pb-12">
+          <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-sky-50 p-6 text-center">
+            {!timeLeft.done ? (
+              <>
+                <p className="text-gray-700">Countdown to {countdownLabel}:</p>
+                <div className="mt-3 flex items-center justify-center gap-3">
+                  <div className="px-4 py-2 rounded-lg bg-white border border-gray-200"><div className="text-2xl font-bold text-gray-900">{timeLeft.d}</div><div className="text-xs text-gray-500">days</div></div>
+                  <div className="px-4 py-2 rounded-lg bg-white border border-gray-200"><div className="text-2xl font-bold text-gray-900">{timeLeft.h}</div><div className="text-xs text-gray-500">hours</div></div>
+                  <div className="px-4 py-2 rounded-lg bg-white border border-gray-200"><div className="text-2xl font-bold text-gray-900">{timeLeft.m}</div><div className="text-xs text-gray-500">mins</div></div>
+                  <div className="px-4 py-2 rounded-lg bg-white border border-gray-200"><div className="text-2xl font-bold text-gray-900">{timeLeft.s}</div><div className="text-xs text-gray-500">secs</div></div>
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-800 text-lg">It’s here! Happy {countdownLabel}! 🎉</p>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Callout */}
       <section className="px-4 pb-16">
         <div className="max-w-5xl mx-auto">
@@ -503,7 +745,7 @@ function App() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 bg-white/70">
+      <footer className="border-t border-gray-100 bg-white/70 print:hidden">
         <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center justify-between gap-3">
           <p className="text-sm text-gray-500">Made with ❤️ by an elder brother</p>
           <div className="flex items-center gap-2 text-sm text-gray-500">
