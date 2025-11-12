@@ -128,11 +128,23 @@ function App() {
   const [countdownLabel, setCountdownLabel] = useState('Big day')
   const [countdownDate, setCountdownDate] = useState('')
   const [timeLeft, setTimeLeft] = useState(null)
+  const [countdownCelebrated, setCountdownCelebrated] = useState(false)
 
   // Music
   const [musicUrl, setMusicUrl] = useState('')
   const [musicOn, setMusicOn] = useState(false)
   const audioRef = useRef(null)
+
+  // Timeline
+  const [timeline, setTimeline] = useState([]) // {year, text}
+  const [timelineForm, setTimelineForm] = useState({ year: '', text: '' })
+
+  // Wish wall
+  const [wishes, setWishes] = useState([]) // {text, date}
+  const [wishText, setWishText] = useState('')
+
+  // Heart trail
+  const [heartTrailOn, setHeartTrailOn] = useState(false)
 
   const theme = THEMES[themeKey]
 
@@ -145,6 +157,9 @@ function App() {
     const savedGallery = localStorage.getItem('bro-love-gallery')
     const savedCountdown = localStorage.getItem('bro-love-countdown')
     const savedMusic = localStorage.getItem('bro-love-music')
+    const savedTimeline = localStorage.getItem('bro-love-timeline')
+    const savedWishes = localStorage.getItem('bro-love-wishes')
+    const savedTrail = localStorage.getItem('bro-love-hearttrail')
 
     if (saved) setMessage(saved)
     if (savedName) setName(savedName)
@@ -160,41 +175,24 @@ function App() {
     if (savedMusic) { try {
       const obj = JSON.parse(savedMusic)
       if (obj.url) setMusicUrl(obj.url)
-      if (obj.on) setMusicOn(obj.on)
+      if (typeof obj.on === 'boolean') setMusicOn(obj.on)
     } catch {} }
+    if (savedTimeline) { try { setTimeline(JSON.parse(savedTimeline)) } catch {} }
+    if (savedWishes) { try { setWishes(JSON.parse(savedWishes)) } catch {} }
+    if (savedTrail) { setHeartTrailOn(savedTrail === '1') }
   }, [])
 
-  useEffect(() => {
-    localStorage.setItem('bro-love-message', message)
-  }, [message])
-
-  useEffect(() => {
-    localStorage.setItem('bro-love-name', name)
-  }, [name])
-
-  useEffect(() => {
-    localStorage.setItem('bro-love-memories', JSON.stringify(memories))
-  }, [memories])
-
-  useEffect(() => {
-    localStorage.setItem('bro-love-reasons', JSON.stringify(reasons))
-  }, [reasons])
-
-  useEffect(() => {
-    localStorage.setItem('bro-love-theme', themeKey)
-  }, [themeKey])
-
-  useEffect(() => {
-    localStorage.setItem('bro-love-gallery', JSON.stringify(gallery))
-  }, [gallery])
-
-  useEffect(() => {
-    localStorage.setItem('bro-love-countdown', JSON.stringify({ label: countdownLabel, date: countdownDate }))
-  }, [countdownLabel, countdownDate])
-
-  useEffect(() => {
-    localStorage.setItem('bro-love-music', JSON.stringify({ url: musicUrl, on: musicOn }))
-  }, [musicUrl, musicOn])
+  useEffect(() => { localStorage.setItem('bro-love-message', message) }, [message])
+  useEffect(() => { localStorage.setItem('bro-love-name', name) }, [name])
+  useEffect(() => { localStorage.setItem('bro-love-memories', JSON.stringify(memories)) }, [memories])
+  useEffect(() => { localStorage.setItem('bro-love-reasons', JSON.stringify(reasons)) }, [reasons])
+  useEffect(() => { localStorage.setItem('bro-love-theme', themeKey) }, [themeKey])
+  useEffect(() => { localStorage.setItem('bro-love-gallery', JSON.stringify(gallery)) }, [gallery])
+  useEffect(() => { localStorage.setItem('bro-love-countdown', JSON.stringify({ label: countdownLabel, date: countdownDate })) }, [countdownLabel, countdownDate])
+  useEffect(() => { localStorage.setItem('bro-love-music', JSON.stringify({ url: musicUrl, on: musicOn })) }, [musicUrl, musicOn])
+  useEffect(() => { localStorage.setItem('bro-love-timeline', JSON.stringify(timeline)) }, [timeline])
+  useEffect(() => { localStorage.setItem('bro-love-wishes', JSON.stringify(wishes)) }, [wishes])
+  useEffect(() => { localStorage.setItem('bro-love-hearttrail', heartTrailOn ? '1' : '0') }, [heartTrailOn])
 
   const [memForm, setMemForm] = useState({ icon: '💖', title: '', subtitle: '' })
 
@@ -222,26 +220,26 @@ function App() {
     container.style.zIndex = '50'
     document.body.appendChild(container)
 
-    const count = 80
+    const count = 120
     for (let i = 0; i < count; i++) {
       const piece = document.createElement('span')
-      piece.textContent = ['🎉','💖','✨','⭐','🎊'][Math.floor(Math.random() * 5)]
+      piece.textContent = ['🎉','💖','✨','⭐','🎊','💫','🌟'][Math.floor(Math.random() * 7)]
       piece.style.position = 'absolute'
       piece.style.left = Math.random() * 100 + 'vw'
       piece.style.top = '-2rem'
-      piece.style.fontSize = 16 + Math.random() * 18 + 'px'
+      piece.style.fontSize = 14 + Math.random() * 20 + 'px'
       piece.style.willChange = 'transform, opacity'
       piece.style.transition = 'transform 1.8s ease-out, opacity 2s ease-out'
       container.appendChild(piece)
-      const dx = (Math.random() - 0.5) * 200
-      const dy = 100 + Math.random() * 800
+      const dx = (Math.random() - 0.5) * 240
+      const dy = 120 + Math.random() * 900
       const rot = (Math.random() - 0.5) * 360
       requestAnimationFrame(() => {
         piece.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`
         piece.style.opacity = '0'
       })
     }
-    setTimeout(() => container.remove(), 2200)
+    setTimeout(() => container.remove(), 2300)
   }
 
   function downloadLetter() {
@@ -280,14 +278,40 @@ function App() {
     setGallery((g) => g.filter((_, i) => i !== index))
   }
 
+  // Timeline actions
+  function addTimelineItem() {
+    if (!timelineForm.year.trim() || !timelineForm.text.trim()) return
+    const yearNum = parseInt(timelineForm.year, 10)
+    const item = { year: isNaN(yearNum) ? timelineForm.year.trim() : yearNum, text: timelineForm.text.trim() }
+    setTimeline((t) => [...t, item].sort((a, b) => (a.year+'' > b.year+'') ? 1 : -1))
+    setTimelineForm({ year: '', text: '' })
+  }
+  function removeTimelineItem(i) { setTimeline((t) => t.filter((_, idx) => idx !== i)) }
+
+  // Wishes actions
+  function addWish() {
+    if (!wishText.trim()) return
+    setWishes((w) => [{ text: wishText.trim(), date: new Date().toISOString() }, ...w])
+    setWishText('')
+  }
+  function removeWish(i) { setWishes((w) => w.filter((_, idx) => idx !== i)) }
+
+  // Countdown compute + celebrate when done
   useEffect(() => {
-    if (!countdownDate) { setTimeLeft(null); return }
+    if (!countdownDate) { setTimeLeft(null); setCountdownCelebrated(false); return }
     function compute() {
       const target = new Date(countdownDate).getTime()
       const now = Date.now()
       const diff = target - now
       if (isNaN(target)) { setTimeLeft(null); return }
-      if (diff <= 0) { setTimeLeft({ d:0,h:0,m:0,s:0, done: true }); return }
+      if (diff <= 0) {
+        setTimeLeft({ d:0,h:0,m:0,s:0, done: true })
+        if (!countdownCelebrated) {
+          celebrate()
+          setCountdownCelebrated(true)
+        }
+        return
+      }
       const d = Math.floor(diff / (1000*60*60*24))
       const h = Math.floor((diff / (1000*60*60)) % 24)
       const m = Math.floor((diff / (1000*60)) % 60)
@@ -297,8 +321,9 @@ function App() {
     compute()
     const id = setInterval(compute, 1000)
     return () => clearInterval(id)
-  }, [countdownDate])
+  }, [countdownDate, countdownCelebrated])
 
+  // Music control
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -309,13 +334,33 @@ function App() {
     }
   }, [musicOn, musicUrl])
 
-  function toggleMusic() {
-    setMusicOn((v) => !v)
-  }
+  function toggleMusic() { setMusicOn((v) => !v) }
+  function printPage() { window.print() }
 
-  function printPage() {
-    window.print()
-  }
+  // Heart trail listener
+  useEffect(() => {
+    if (!heartTrailOn) return
+    function onMove(e) {
+      const heart = document.createElement('span')
+      heart.textContent = '❤️'
+      heart.style.position = 'fixed'
+      heart.style.left = e.clientX + 'px'
+      heart.style.top = e.clientY + 'px'
+      heart.style.pointerEvents = 'none'
+      heart.style.transform = 'translate(-50%, -50%) scale(1)'
+      heart.style.transition = 'transform 1s ease-out, opacity 1s ease-out'
+      heart.style.opacity = '1'
+      heart.style.zIndex = '50'
+      document.body.appendChild(heart)
+      requestAnimationFrame(() => {
+        heart.style.transform = 'translate(-50%, -80%) scale(0.6)'
+        heart.style.opacity = '0'
+      })
+      setTimeout(() => heart.remove(), 1000)
+    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [heartTrailOn])
 
   // Surprise message
   const [secret, setSecret] = useState({ code: '', text: '' })
@@ -435,9 +480,9 @@ function App() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h3 className="font-semibold text-gray-900">Personalize the vibe</h3>
-              <p className="text-sm text-gray-600">Pick a color theme, add memories, reasons, and more. Everything saves automatically.</p>
+              <p className="text-sm text-gray-600">Pick a color theme, add memories, reasons, photos, timeline and more. Everything saves automatically.</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {Object.entries(THEMES).map(([key, t]) => (
                 <button
                   key={key}
@@ -448,6 +493,7 @@ function App() {
                   {t.name}
                 </button>
               ))}
+              <button onClick={() => setHeartTrailOn((v)=>!v)} className={`px-3 py-2 rounded-lg text-sm ${heartTrailOn ? 'bg-rose-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>{heartTrailOn ? 'Disable heart trail' : 'Enable heart trail'}</button>
             </div>
           </div>
 
@@ -501,7 +547,7 @@ function App() {
             </div>
           </div>
 
-          {/* Gallery + Countdown + Music + Secret */}
+          {/* Gallery + Countdown + Music */}
           <div className="grid md:grid-cols-2 gap-4 mt-4">
             {/* Gallery */}
             <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -558,39 +604,51 @@ function App() {
             </div>
           </div>
 
-          {/* Secret message */}
-          <div className="rounded-xl border border-gray-200 bg-white p-4 mt-4">
-            <h4 className="font-medium text-gray-900 mb-3">Surprise message</h4>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <input
-                value={secret.code}
-                onChange={(e) => setSecret((s) => ({ ...s, code: e.target.value }))}
-                className="px-3 py-2 border border-gray-200 rounded-lg"
-                placeholder="Set a secret code (e.g., a date)"
-              />
-              <input
-                value={secret.text}
-                onChange={(e) => setSecret((s) => ({ ...s, text: e.target.value }))}
-                className="px-3 py-2 border border-gray-200 rounded-lg"
-                placeholder="Hidden message"
-              />
+          {/* Timeline + Wishes */}
+          <div className="grid md:grid-cols-2 gap-4 mt-4">
+            {/* Timeline */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <h4 className="font-medium text-gray-900 mb-3">Timeline</h4>
+              <div className="grid sm:grid-cols-3 gap-2 mb-2">
+                <input
+                  value={timelineForm.year}
+                  onChange={(e)=>setTimelineForm((f)=>({...f, year: e.target.value}))}
+                  className="px-3 py-2 border border-gray-200 rounded-lg"
+                  placeholder="Year"
+                />
+                <input
+                  value={timelineForm.text}
+                  onChange={(e)=>setTimelineForm((f)=>({...f, text: e.target.value}))}
+                  className="sm:col-span-2 px-3 py-2 border border-gray-200 rounded-lg"
+                  placeholder="What happened"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={addTimelineItem} className="px-3 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm">Add moment</button>
+                {timeline.length > 0 && (
+                  <button onClick={()=>setTimeline([])} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm">Clear all</button>
+                )}
+              </div>
             </div>
-            <div className="mt-3 flex items-center gap-2">
-              <input
-                value={unlockAttempt}
-                onChange={(e) => setUnlockAttempt(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg"
-                placeholder="Enter code to preview unlock"
-              />
-              <button
-                onClick={() => setUnlocked(unlockAttempt === secret.code && secret.code.length > 0)}
-                className="px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-sm"
-              >
-                Unlock
-              </button>
-              {unlocked && <span className="text-sm text-emerald-600">Unlocked! This is what he will see.</span>}
+
+            {/* Wishes */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <h4 className="font-medium text-gray-900 mb-3">Wish wall</h4>
+              <div className="flex items-center gap-2">
+                <input
+                  value={wishText}
+                  onChange={(e)=>setWishText(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg"
+                  placeholder="Write a small wish or encouragement"
+                />
+                <button onClick={addWish} className="px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-sm">Add</button>
+                {wishes.length > 0 && (
+                  <button onClick={()=>setWishes([])} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm">Clear all</button>
+                )}
+              </div>
             </div>
           </div>
+
         </div>
       </section>
 
@@ -615,7 +673,7 @@ function App() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {gallery.map((p, i) => (
               <figure key={i} className="group overflow-hidden rounded-xl border border-gray-200 bg-white">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {/* eslint-disable-next-line jsx-a11y/img-redundant-alt */}
                 <img src={p.url} alt={p.caption || `Photo ${i+1}`} className="w-full h-56 object-cover" />
                 <figcaption className="flex items-center justify-between px-3 py-2 text-sm text-gray-700">
                   <span className="truncate mr-2">{p.caption || '—'}</span>
@@ -693,6 +751,45 @@ function App() {
           </div>
         </div>
       </section>
+
+      {/* Timeline display */}
+      {timeline.length > 0 && (
+        <section className="max-w-5xl mx-auto px-4 py-12">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Our timeline</h2>
+          <ol className="relative border-l border-gray-200">
+            {timeline.map((item, i) => (
+              <li key={i} className="ml-4 mb-6">
+                <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-gradient-to-br from-rose-500 to-pink-500"></div>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <time className="text-sm font-medium text-gray-900">{item.year}</time>
+                    <p className="text-gray-700">{item.text}</p>
+                  </div>
+                  <button onClick={()=>removeTimelineItem(i)} className="text-xs px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700">Remove</button>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {/* Wishes display */}
+      {wishes.length > 0 && (
+        <section className="max-w-5xl mx-auto px-4 pb-12">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Wish wall</h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {wishes.map((w, i) => (
+              <div key={i} className="rounded-xl border border-gray-200 bg-white p-4 flex items-start justify-between">
+                <div>
+                  <p className="text-gray-800">{w.text}</p>
+                  <p className="text-xs text-gray-500 mt-1">{new Date(w.date).toLocaleString()}</p>
+                </div>
+                <button onClick={()=>removeWish(i)} className="text-xs px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 ml-3">Remove</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Reasons */}
       <section id="reasons" className="max-w-5xl mx-auto px-4 py-12">
